@@ -3,15 +3,13 @@ const inquirer = require("inquirer");
 const employees = [];
 const roles = [];
 const managers = [];
+const departments = [];
 const connection = mysql.createConnection({
   host: "localhost",
-
   // Your port; if not 3306
   port: 3306,
-
   // Your username
   user: "root",
-
   // Be sure to update with your own MySQL password!
   password: "R00tr00t",
   database: "employee_trackerdb",
@@ -44,6 +42,12 @@ const runTracker = () => {
       managers.push(`${first_name}`);
     });
   });
+  const query3 = "SELECT name FROM department;";
+  connection.query(query3, (err, res) => {
+    res.forEach(({ name }) => {
+      departments.push(`${name}`);
+    });
+  });
   inquirer
     .prompt({
       name: "action",
@@ -62,7 +66,8 @@ const runTracker = () => {
         "View the total utilized budget of a department",
         "Delete departments",
         "Delete roles",
-        "Delete Employee",
+        "Delete employees",
+        "Exit",
       ],
     })
     .then((answer) => {
@@ -108,15 +113,15 @@ const runTracker = () => {
           break;
 
         case "Delete departments":
-          deleteData();
+          deleteData("department");
           break;
 
         case "Delete roles":
-          deleteData();
+          deleteData("role");
           break;
 
         case "Delete employees":
-          deleteData();
+          deleteData("employee");
           break;
 
         default:
@@ -164,13 +169,7 @@ const add = (data) => {
         .then((answer) => {
           const query =
             "INSERT INTO role (id_Dep, title, salary) VALUES (?, ?, ?);";
-          console.log(
-            connection.query(query, [
-              answer.id_dep,
-              answer.title,
-              answer.salary,
-            ])
-          );
+          connection.query(query, [answer.id_dep, answer.title, answer.salary]);
           console.log(answer);
           runTracker();
         });
@@ -322,6 +321,78 @@ const viewEmbyMan = () => {
     });
 };
 
-const viewBudget = () => {};
+const viewBudget = () => {
+  inquirer
+    .prompt([
+      {
+        name: "department",
+        type: "rawlist",
+        message: "Choose department:",
+        choices: departments,
+      },
+    ])
+    .then((answer) => {
+      const query =
+        "SELECT SUM(salary) AS TotalBudget FROM role WHERE idRole IN (SELECT id_Rol FROM employee WHERE id_Rol IN (SELECT idRole FROM role WHERE id_Dep IN (SELECT idDepartment FROM department WHERE name = ?)));";
+      connection.query(query, [answer.department], (err, res) => {
+        console.log(`Total Department budget: ${res[0].TotalBudget}`);
+        runTracker();
+      });
+    });
+};
 
-const deleteData = () => {};
+const deleteData = (data) => {
+  switch (data) {
+    case "department":
+      inquirer
+        .prompt([
+          {
+            name: "department",
+            type: "rawlist",
+            message: "Choose department:",
+            choices: departments,
+          },
+        ])
+        .then((answer) => {
+          const query = "DELETE FROM department WHERE name = ?;";
+          connection.query(query, [answer.department]);
+          runTracker();
+        });
+      break;
+    case "role":
+      inquirer
+        .prompt([
+          {
+            name: "role",
+            type: "rawlist",
+            message: "Choose role:",
+            choices: roles,
+          },
+        ])
+        .then((answer) => {
+          const query = "DELETE FROM role WHERE title = ?;";
+          connection.query(query, [answer.role]);
+          runTracker();
+        });
+      break;
+    case "employee":
+      inquirer
+        .prompt([
+          {
+            name: "employee",
+            type: "rawlist",
+            message: "Choose employee:",
+            choices: employees,
+          },
+        ])
+        .then((answer) => {
+          const query = "DELETE FROM employee WHERE first_name = ?;";
+          connection.query(query, [answer.employee]);
+          runTracker();
+        });
+      break;
+    default:
+      console.log(`Invalid action`);
+      break;
+  }
+};
